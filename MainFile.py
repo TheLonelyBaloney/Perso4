@@ -43,7 +43,6 @@ def doStuff():
 
             if trade['size'] > AVERAGEMULTTHRESHOLD*tradeSizeAverage:
                 print_trade(trade)
-                print(dataPoint['success'])
         
         print(tradeSizeAverage)
 

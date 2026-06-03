@@ -107,18 +107,23 @@ def print_market(m: dict):
     print(f"  {'─'*56}\n")
 
 def print_trade(t :dict):
-    print(f"  {'─'*56}")
+    print(f"  {'─'*50}")
 
     print("  "+t['name'])
 
     # Size
-    print(f"  Size     : ${t['size']}")
+    print(f"  Size     :  ${t['size']}")
     # Price 
     print(f"  Price    :  {t['price']}")
     # Timestamp
     print(f"  Timestamp:  {t['timestamp']}")
+    #outcome
+    print(f"  Outcome  :  {t['outcome']}")
+    #outcome Index
+    print(f"  Win?     :  {t['outcomeIndex']}")
 
-    print(f"  {'─'*50}\n")
+
+    print(f"  {'─'*50}")
 
 
 
