@@ -86,7 +86,7 @@ def print_market(m: dict):
 
     print(f"\n  {'─'*56}")
     print(f"  {m.get('question', 'N/A')}")
-    print(f"Condition_id: {m.get('conditionId')}")
+    print(f"  Condition_id: {m.get('conditionId')}")
     print(f"  {'─'*56}")
 
     # Outcomes
@@ -105,6 +105,21 @@ def print_market(m: dict):
     flags = [k for k in flag_keys if m.get(k)]
     print(f"  Flags   : {' | '.join(flags) or 'none'}")
     print(f"  {'─'*56}\n")
+
+def print_trade(t :dict):
+    print(f"  {'─'*56}")
+
+    print("  "+t['name'])
+
+    # Size
+    print(f"  Size     : ${t['size']}")
+    # Price 
+    print(f"  Price    :  {t['price']}")
+    # Timestamp
+    print(f"  Timestamp:  {t['timestamp']}")
+
+    print(f"  {'─'*50}\n")
+
 
 
 if __name__ == "__main__":
