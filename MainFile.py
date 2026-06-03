@@ -1,51 +1,33 @@
 from PrintMachine import *
 from GetAPIStuff import *
+from db import *
 
 global AVERAGEMULTTHRESHOLD
-AVERAGEMULTTHRESHOLD = 3
+AVERAGEMULTTHRESHOLD = 4
 
 def doStuff(): 
 
     events = getEventsStuff()
-    event = events[0]
 
-    event_markets = event['markets']
+    for event in events:
 
-    
-    for market in event_markets:
-        print(market)
-        print_market(market)
+        event_markets = event['markets']
+
         
-        outcome = market['outcomes'][market['outcomePrices'].index("1")]
-        volume = market['volume']
-        
+        for market in event_markets:
+            if market['volume'] < 10000:
+                continue
+            print_market(market)
 
-        conditionId = market['conditionId']
-        trades = getTradesByMarket(conditionId)
-        if len(trades) == 0: #well duhhh
-            break
+            conditionId = market['conditionId']
+            trades = getTradesByMarket(conditionId)
 
-        tradeSizeAverage = sum([float(t['size']) for t in trades])/len(trades)
-        
-        tradesDataSet = []
-        for trade in trades:
-
-            dataPoint = {}
-            dataPoint['wallet'] = trade['proxyWallet']
-            dataPoint['size'] = trade['size']
-            dataPoint['price'] = trade['price']
-            dataPoint['timestamp'] = trade['timestamp']
-            dataPoint['m_volume'] = volume
-            dataPoint['success'] = trade['outcomeIndex'] #check if outcomeIndex means if he won or not
-            # 
-            # If want to pull Username and check profile and shi just go 'name' and 'pseudoname'
-            tradesDataSet.append(dataPoint)
-
-            if trade['size'] > AVERAGEMULTTHRESHOLD*tradeSizeAverage:
-                print_trade(trade)
-        
-        print(tradeSizeAverage)
-
+            if len(trades) == 0: #well duhhh
+                break
+            
+            for trade in trades:
+                insertTradeToDB(conn,trade)
+                
     return
 
 

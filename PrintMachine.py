@@ -110,7 +110,7 @@ def print_trade(t :dict):
     print(f"  {'─'*50}")
 
     print("  "+t['name'])
-
+    print("  "+t['proxyWallet'])
     # Size
     print(f"  Size     :  ${t['size']}")
     # Price 

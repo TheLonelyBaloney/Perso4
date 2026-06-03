@@ -12,9 +12,9 @@ def getEventsStuff():
     response = requests.get(
         url,
         params={
-            "limit":"100",
+            "limit":"10",
             "archived":"True",
-            "volume_min":"40000",
+            "volume_min":"400000",
             "start_date_min":"1748822400",
             "closed":"true"
         }
