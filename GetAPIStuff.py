@@ -12,11 +12,13 @@ def getEventsStuff():
     response = requests.get(
         url,
         params={
-            "limit":"10",
+            "limit":"100",
+            "offset":"200",
             "archived":"True",
             "volume_min":"400000",
             "start_date_min":"1748822400",
-            "closed":"true"
+            "closed":"true",
+            "exclude_tag_id":21 ###can add more (21: crypto)
         }
     )
     events = response.json()
@@ -48,6 +50,18 @@ def getTradesByMarket(condition_id):
 
     return nonTrivialTrades
 
+def getUserByProxyWallet(wallet):
+    url = "https://gamma-api.polymarket.com/public-profile"
+
+    response = requests.get(
+        url, 
+        params={
+            "address":wallet
+    })
+
+    user = response.json()
+
+    return user
 
 if __name__ == "__main__":
     print("wrong place buddy")
