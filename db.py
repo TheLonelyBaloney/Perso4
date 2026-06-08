@@ -71,7 +71,9 @@ def insertUserToDB(conn,user):
     cur = conn.cursor()
 
     dateCreated = user.get('createdAt')
-
+    if not dateCreated: ### For some reason some accounts dont have a createdAt attribute
+        return
+    
     unix =  datetime.fromisoformat(dateCreated.replace("Z", "+00:00")).timestamp()
 
     cur.execute("""

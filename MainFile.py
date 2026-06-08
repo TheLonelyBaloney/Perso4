@@ -10,10 +10,11 @@ import sklearn
 def doData(): 
 
     events = getEventsStuff()
-    eventcount = 5
-    for event in events[5:]:
+    eventcount =0
+    for event in events:
 
-        print(eventcount)
+        print(f"  {eventcount}")
+        print_event(event)
         eventcount += 1
 
         event_markets = event['markets']
@@ -21,15 +22,16 @@ def doData():
         
         for market in event_markets:
 
-            if float(market['volume']) < 50000:
+            if float(market.get('volume', 0)) < 50000:
                 continue
-
             conditionId = market['conditionId']
             trades = getTradesByMarket(conditionId)
 
             if len(trades) == 0: #well duhhh
+                print("no trades")
                 continue
             if not insertMarketToDB(conn,market):
+                print("insert Failed")
                 continue
 
             print_market(market)

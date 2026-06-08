@@ -4,76 +4,21 @@ from pprint import pprint
 
 def print_event(event: dict):
     # ── Core Identity ──────────────────────────────────────────
-    print(f"\n{'='*60}")
+    print(f"{'='*60}")
     print(f"  {event.get('title', 'N/A')}  [{event.get('ticker', '?')}]")
     print(f"  ID: {event.get('id')}  |  Slug: {event.get('slug')}")
     print(f"{'='*60}")
-
-    # ── Description ───────────────────────────────────────────
-    desc = event.get('description', '')
-    if desc:
-        print(f"\n{desc[:200]}{'...' if len(desc) > 200 else ''}")
-
-    # ── Status Flags ──────────────────────────────────────────
-    flag_keys = ['active', 'closed', 'archived', 'new', 'featured',
-                 'restricted', 'cyom', 'negRiskAugmented']
-    active_flags = [key for key in flag_keys if event.get(key)]
-    print(f"\n  Status : {' | '.join(active_flags) or 'none'}")
-
     # ── Dates ─────────────────────────────────────────────────
-    print(f"\n  Dates")
-    print(f"  {'-'*30}")
-    for label, key in [('Start',   'startDate'),   ('End',     'endDate'),
-                       ('Created', 'creationDate'), ('Closed',  'closedTime')]:
+    for label, key in [('Start',   'startDate'),   ('End',     'endDate')]:
         val = event.get(key)
         if val:
             print(f"  {label:<8}: {val}")
 
     # ── Volume & Liquidity ────────────────────────────────────
-    print(f"\n  Volume & Liquidity")
-    print(f"  {'-'*30}")
-    for label, key in [('Volume',    'volume'),       ('Vol 24h',   'volume24hr'),
-                       ('Vol 1wk',   'volume1wk'),    ('Vol 1mo',   'volume1mo'),
-                       ('Vol 1yr',   'volume1yr'),    ('Liquidity', 'liquidity'),
-                       ('Liq AMM',   'liquidityAmm'), ('Liq CLOB',  'liquidityClob'),
-                       ('Open Int',  'openInterest')]:
+    for label, key in [('Volume',    'volume')]:
         val = event.get(key)
         if val is not None:
             print(f"  {label:<10}: ${float(val):>14,.2f}")
-
-    # ── Category & Tags ───────────────────────────────────────
-    print(f"\n  Category : {event.get('category', 'N/A')}")
-    tags = event.get('tags', [])
-    if tags:
-        tag_labels = [t.get('label', str(t)) if isinstance(t, dict) else str(t) for t in tags]
-        print(f"  Tags     : {', '.join(tag_labels)}")
-    series = event.get('series') or event.get('seriesSlug')
-    if series:
-        print(f"  Series   : {series}")
-
-    # ── Markets ───────────────────────────────────────────────
-    markets = event.get('markets', [])
-    if markets:
-        print(f"\n  Markets ({len(markets)})")
-        print(f"  {'-'*30}")
-        for m in markets[:5]:
-            question = m.get('question', m.get('title', 'N/A'))
-            prices   = m.get('outcomePrices') or m.get('outcomes', '')
-            print(f"  + {question[:70]}")
-            if prices:
-                print(f"    Prices: {prices}")
-        if len(markets) > 5:
-            print(f"  ... and {len(markets) - 5} more")
-
-    # ── Misc ──────────────────────────────────────────────────
-    print(f"\n  Comments : {event.get('commentCount', 0)}")
-    print(f"  Sort By  : {event.get('sortBy', 'N/A')}")
-    meta = event.get('eventMetadata')
-    if meta:
-        print(f"\n  Metadata :")
-        pprint(meta, indent=4)
-
-    print(f"\n{'─'*60}\n")
 
 def print_market(m: dict):
     # parse outcomes/prices
