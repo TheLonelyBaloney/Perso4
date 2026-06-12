@@ -1,6 +1,10 @@
 import json
 import sqlite3
 from datetime import datetime
+import time
+
+import pandas as pd
+import requests
 
 def startup():
     conn = sqlite3.connect("polymarket.db")
@@ -35,6 +39,13 @@ def startup():
     """)
     conn.commit()
     return conn
+
+def addEndDateToMarkets(conn):
+    cur = conn.cursor()
+    cur.execute("""
+        ALTER TABLE markets ADD COLUMN endDate TEXT
+    """)
+    conn.commit()
 
 def insertTradeToDB(conn,trade):
 
@@ -84,7 +95,18 @@ def insertUserToDB(conn,user):
     
     conn.commit()
     return
+############################ forgot to add endDate
+                  
+def DBgetTrades(conn, limit=10000):
+    return pd.read_sql(f"SELECT conditionId, wallet, timestamp, price, size, outcome, trans_hash FROM trades LIMIT {limit}", conn)
 
+def DBgetMarkets(conn):
+
+    return pd.read_sql("SELECT * FROM markets", conn)
+
+def DBgetUsers(conn):
+
+    return pd.read_sql("SELECT * FROM users", conn)
 
 def CheckOutDB():
     conn = sqlite3.connect("polymarket.db")
@@ -111,5 +133,6 @@ def CheckOutDB():
 
 if __name__ == "__main__":
     CheckOutDB()
+    conn=startup()
 else:
     conn = startup()

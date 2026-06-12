@@ -5,7 +5,7 @@ LOWERBOUNDPRICE = 0.1
 global HIGHERBOUNDPRICE
 HIGHERBOUNDPRICE = 0.9
 
-def getEventsStuff():
+def APIgetEventsStuff():
 
     url = "https://gamma-api.polymarket.com/events"
 
@@ -25,7 +25,7 @@ def getEventsStuff():
 
     return events
 
-def getTradesByMarket(condition_id):
+def APIgetTradesByMarket(condition_id):
 
     nonTrivialTrades = []
     offset = 0
@@ -50,7 +50,7 @@ def getTradesByMarket(condition_id):
 
     return nonTrivialTrades
 
-def getUserByProxyWallet(wallet):
+def APIgetUserByProxyWallet(wallet):
     url = "https://gamma-api.polymarket.com/public-profile"
 
     response = requests.get(
