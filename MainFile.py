@@ -1,5 +1,5 @@
 import time
-
+import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
@@ -85,14 +85,41 @@ def doStats():
     df['is_deleted'] = df['account_age'].isna().astype(int) #Deleted accounts could be sus so maybe add a tag for if deleted
     df['account_age'] = df['account_age'].fillna(df['account_age'].median()) #Make deleted accounts have median age to not fuck around with data and still keep them
     df['account_age_at_trade'] = (df['timestamp'] - df['account_age']) #time between account creation and time trade is done (hypothesis is new accounts are more likely to be sus)
+    df['certainty'] = abs(df['price']-0.5)
 
+    trade_counts = df.groupby('wallet')['won'].count().rename('user_trade_count')  # seems to be a pretty good feature
+    df = df.merge(trade_counts, on='wallet')
+
+    df = count_trades_in_window(df)
     # quick stats on every column
     print(df.shape)
     print(df.describe())
 
+    features = ['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct', 'size', 'price','user_trade_count','window_trade_count']
+    corr_matrix = df[features].corr()
+    print(corr_matrix)
+
+
+    sns.heatmap(corr_matrix, 
+                annot=True,      # show values
+                fmt='.2f',       # 2 decimal places
+                cmap='coolwarm', # red=positive, blue=negative
+                center=0)        # center colormap at 0
+
+    plt.title('Feature Correlation Matrix')
+    plt.show()
+
+    #########################################################################################
+    ###################### IF price >0.5 just bet bro #######################################
+    print("-"*20+"Base") 
+    BaseLineME(df)
+    '''
+    accuracy = 72.3%
+    '''
     #########################################################################################
     ##############      LOGISTIC REGRESSION!!! ##############################################
-    LinearRegressionME(df,price=False)
+    print("-"*20+"LR WITHOUT PRICE")
+    LogisticRegressionME(df,price=False) 
     '''
     accuracy = 52.9%
 
@@ -100,77 +127,98 @@ def doStats():
     timeFromEnd             0.012295
     sizeToVolumePct        -0.006053
     '''
+    # 55.4 with user trade count and window trade count
     ##################### WITH PRICE
-    LinearRegressionME(df,price=True)
+    print("-"*20+"LR WITH PRICE")
+    LogisticRegressionME(df,price=True)
+             #feels worse than just using price and no model haha (model just doing low price => not win and high price => win)
     '''
     accuracy = 72.2%
+
     price                   1.315195
     timeFromEnd             0.041112
     account_age_at_trade    0.021879
     sizeToVolumePct         0.006112
     '''
+    # 72.9 with user trade count and window trade count
     #######################################################################################
     ################ RANDOM FOREST!!!  ####################################################
-    X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','size']]
-    y = df.loc[X.index, 'won']
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # no need to scale for Random Forest
-    model_rf = RandomForestClassifier(
-        n_estimators=100,    # number of trees
-        max_depth=10,        # max depth per tree
-        max_features=2,
-        random_state=42,
-        n_jobs=-1            # use all CPU cores
-    )
-
-    model_rf.fit(X_train, y_train)
-
-    print(f"Accuracy: {model_rf.score(X_test, y_test):.3f}") #59.8%!!!! (without price)
-    print(classification_report(y_test, model_rf.predict(X_test)))
-
-    importances = pd.Series(model_rf.feature_importances_, index=X.columns)
-    print(importances.sort_values(ascending=False))
+    print("-"*20+"RF WITHOUT PRICE")
+    RandomForestME(df,price=False)
     '''
-    account_age_at_trade    0.368335
-    timeFromEnd             0.282054
-    size                    0.189767
-    sizeToVolumePct         0.159844
+    accuracy = 62.9
+
+    volume                  0.328541
+    account_age_at_trade    0.294820
+    timeFromEnd             0.229161
+    size                    0.147478                  
     '''
+    # 64.9 with usertradecount
+    # 67.9 with user trade count and window trade count
     ################# WITH PRICE
-    X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','size','price']] 
-    y = df.loc[X.index, 'won']
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # no need to scale for Random Forest
-    model_rf = RandomForestClassifier(
-        n_estimators=100,    # number of trees
-        max_depth=10,        # max depth per tree
-        max_features=2,
-        random_state=42,
-        n_jobs=-1            # use all CPU cores
-    )
-
-    model_rf.fit(X_train, y_train)
-
-    print(f"Accuracy: {model_rf.score(X_test, y_test):.3f}") #75.3% with price though...
-    print(classification_report(y_test, model_rf.predict(X_test)))
-
-    importances = pd.Series(model_rf.feature_importances_, index=X.columns)
-    print(importances.sort_values(ascending=False))
+    print("-"*20+"RF WITH PRICE")
+    RandomForestME(df,price=True)
     '''
-    price                   0.814493
-    timeFromEnd             0.091580
-    account_age_at_trade    0.038694
-    sizeToVolumePct         0.031958
-    size                    0.023275  
+    acc=79.2
+
+    price                   0.716105
+    volume                  0.151933
+    timeFromEnd             0.094256
+    account_age_at_trade    0.025831
+    size                    0.011875 
     '''
+    # 80.2 with user trade count
+    # 82.5 with user trade count and window trade count
+    ####################################################################################
+    ########### XGBOOST IT #############################################################
+    print("-"*20+"XGB WITHOUT PRICE")
+    XGBoostME(df,price=False)
+    '''
+    acc = 62.6
+
+    volume                  0.330936
+    account_age_at_trade    0.241058
+    timeFromEnd             0.233566
+    size                    0.194440
+    '''
+    # 65.8 with user trade count
+    # 68.92 with user trade count and window trade count
+    ############ WITH PRICE
+    print("-"*20+"XGB WITH PRICE")
+    XGBoostME(df,price=True)
+    '''
+    acc = 79.7
+
+    price                   0.722309
+    volume                  0.142674
+    timeFromEnd             0.083503
+    account_age_at_trade    0.030687
+    size                    0.020827
+    '''
+    # 79.7 with user trade count
+    # 83.59 with user trade count and window trade count
+    ##################################################################################
+    ############ NEURAL NETWORK ######################################################
+    print("-"*20+"NN WITHOUT PRICE")
+    #NeuralNetworkME(df,price=False)
+    print("-"*20+"NN WITH PRICE")
+    #NeuralNetworkME(df,price=True)
     return
 
 
-
+def count_trades_in_window(df, t=3600):
+    df = df.sort_values('timestamp').copy()
+    
+    counts = []
+    for market_id, group in df.groupby('conditionId'):
+        timestamps = group['timestamp'].values
+        for ts in timestamps:
+            count = (timestamps >= ts - t).sum()
+            counts.append((market_id, ts, count))
+    
+    count_df = pd.DataFrame(counts, columns=['conditionId', 'timestamp', 'window_trade_count'])
+    df = df.merge(count_df, on=['conditionId', 'timestamp'])
+    return df
 
 if __name__ == "__main__":
     #doData()
