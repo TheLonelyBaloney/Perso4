@@ -3,12 +3,14 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score, train_test_split
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
+
+from FeatureTests import test_feature_importance
 
 def BaseLineME(df):
 
@@ -22,9 +24,9 @@ def BaseLineME(df):
 def LogisticRegressionME(df,price): #with or without price
 
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','price','user_trade_count','window_trade_count']] 
+        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','price','user_trade_count','window_trade_count','hour_of_day']] 
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','user_trade_count','window_trade_count']] 
+        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','user_trade_count','window_trade_count','hour_of_day']] 
     Y = df.loc[X.index, 'won']
 
     X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42) #standard is 42 for the weights in comment
@@ -37,7 +39,8 @@ def LogisticRegressionME(df,price): #with or without price
     model.fit(X_train_scaled, y_train)
 
     y_pred = model.predict(X_test_scaled)
-    print(f"Accuracy: {model.score(X_test_scaled, y_test):.3f}")
+    print(f"Train accuracy: {model.score(X_train, y_train):.3f}")
+    print(f"Test accuracy:  {model.score(X_test, y_test):.3f}")
     print(classification_report(y_test, y_pred))  
 
     weights = pd.Series(model.coef_[0], index=X.columns)
@@ -48,9 +51,9 @@ def LogisticRegressionME(df,price): #with or without price
 
 def RandomForestME(df,price):
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','price','user_trade_count','window_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','price','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','user_trade_count','window_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
     y = df.loc[X.index, 'won']
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) #standard is 42 for the weights in comment
@@ -65,8 +68,10 @@ def RandomForestME(df,price):
     )
 
     model.fit(X_train, y_train)
+    
 
-    print(f"Accuracy: {model.score(X_test, y_test):.3f}") 
+    print(f"Train accuracy: {model.score(X_train, y_train):.3f}")
+    print(f"Test accuracy:  {model.score(X_test, y_test):.3f}")
     print(classification_report(y_test, model.predict(X_test)))
 
     importances = pd.Series(model.feature_importances_, index=X.columns)
@@ -75,38 +80,51 @@ def RandomForestME(df,price):
 
 def XGBoostME(df, price):
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price','user_trade_count','window_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume','user_trade_count','window_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'user_trade_count', 'window_trade_count','hour_of_day','market_avg_size_so_far']]
     
     y = df.loc[X.index, 'won']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
+    
     model = XGBClassifier(
-        n_estimators=200,       # more trees than RF since learning rate is slow
-        learning_rate=0.05,     # lower = more robust, needs more trees to compensate
-        max_depth=6,            # was 2 (too shallow!), RF was 10 so meet in the middle
-        subsample=0.8,          # randomly sample 80% of rows per tree (reduces overfitting)
-        colsample_bytree=0.8,   # randomly sample 80% of features per tree (like max_features in RF)
+        n_estimators=200,
+        learning_rate=0.05,
+        max_depth=6,
+        subsample=0.8,
+        colsample_bytree=0.8,
         eval_metric='logloss',
         random_state=42
     )
+    
+    cv = RepeatedStratifiedKFold(
+        n_splits=5,    # 5 folds per repeat
+        n_repeats=1,   # repeat 3 times = 15 total evaluations
+        random_state=42
+    )
 
-    model.fit(X_train, y_train)
+    #for feature in X.columns:
+       # test_feature_importance(model, X, y, cv, feature)
 
-    y_pred = model.predict(X_test)
-    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
-    print(classification_report(y_test, y_pred))
+        
+    scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
+    print(f"Individual folds: {scores.round(3)}")
+    print(f"Mean accuracy:    {scores.mean():.4f}")
+    print(f"Std deviation:    {scores.std():.4f}")
+    
+    model.fit(X, y)
     importances = pd.Series(model.feature_importances_, index=X.columns)
     print(importances.sort_values(ascending=False))
+
+
+    
     return
 
 
 def NeuralNetworkME(df, price):
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price','user_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price','user_trade_count','window_trade_count','hour_of_day']]
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume','user_trade_count']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume','user_trade_count','window_trade_count','hour_of_day']]
 
     y = df.loc[X.index, 'won']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -178,7 +196,8 @@ def NeuralNetworkME(df, price):
     with torch.no_grad():
         y_pred = (model(X_test_t) > 0.5).int().numpy()
 
-    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+    print(f"Train accuracy: {model.score(X_train, y_train):.3f}")
+    print(f"Test accuracy:  {model.score(X_test, y_test):.3f}")
     print(classification_report(y_test, y_pred))
 
 

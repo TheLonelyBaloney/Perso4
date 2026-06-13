@@ -85,17 +85,27 @@ def doStats():
     df['is_deleted'] = df['account_age'].isna().astype(int) #Deleted accounts could be sus so maybe add a tag for if deleted
     df['account_age'] = df['account_age'].fillna(df['account_age'].median()) #Make deleted accounts have median age to not fuck around with data and still keep them
     df['account_age_at_trade'] = (df['timestamp'] - df['account_age']) #time between account creation and time trade is done (hypothesis is new accounts are more likely to be sus)
-    df['certainty'] = abs(df['price']-0.5)
 
     trade_counts = df.groupby('wallet')['won'].count().rename('user_trade_count')  # seems to be a pretty good feature
     df = df.merge(trade_counts, on='wallet')
 
-    df = count_trades_in_window(df)
+    df = count_trades_in_window(df) #Number of trades between [t0-t,t] where t is time of trade
+
+    df['hour_of_day'] = pd.to_datetime(df['timestamp'], unit='s').dt.hour
+
+    market_avg_size = df.groupby('conditionId')['size'].mean().rename('market_avg_size')
+    df = df.merge(market_avg_size, on='conditionId')
+
+    df = df.sort_values(['conditionId', 'timestamp'])
+    df['market_avg_size_so_far'] = df.groupby('conditionId')['size'].transform(
+        lambda x: x.expanding().mean().shift(1)  # shift(1) excludes current trade
+)
+
     # quick stats on every column
-    print(df.shape)
+    print(df.shape) #474870,18
     print(df.describe())
 
-    features = ['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct', 'size', 'price','user_trade_count','window_trade_count']
+    features = ['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct', 'size', 'price','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']
     corr_matrix = df[features].corr()
     print(corr_matrix)
 
@@ -107,19 +117,19 @@ def doStats():
                 center=0)        # center colormap at 0
 
     plt.title('Feature Correlation Matrix')
-    plt.show()
+    #plt.show()
 
     #########################################################################################
     ###################### IF price >0.5 just bet bro #######################################
     print("-"*20+"Base") 
     BaseLineME(df)
     '''
-    accuracy = 72.3%
+    accuracy = 72%
     '''
     #########################################################################################
     ##############      LOGISTIC REGRESSION!!! ##############################################
     print("-"*20+"LR WITHOUT PRICE")
-    LogisticRegressionME(df,price=False) 
+    #LogisticRegressionME(df,price=False) 
     '''
     accuracy = 52.9%
 
@@ -127,10 +137,10 @@ def doStats():
     timeFromEnd             0.012295
     sizeToVolumePct        -0.006053
     '''
-    # 55.4 with user trade count and window trade count
+    # 54.6 with user trade count and window trade count
     ##################### WITH PRICE
     print("-"*20+"LR WITH PRICE")
-    LogisticRegressionME(df,price=True)
+    #LogisticRegressionME(df,price=True)
              #feels worse than just using price and no model haha (model just doing low price => not win and high price => win)
     '''
     accuracy = 72.2%
@@ -140,11 +150,11 @@ def doStats():
     account_age_at_trade    0.021879
     sizeToVolumePct         0.006112
     '''
-    # 72.9 with user trade count and window trade count
+    # 72.2 with user trade count and window trade count
     #######################################################################################
     ################ RANDOM FOREST!!!  ####################################################
     print("-"*20+"RF WITHOUT PRICE")
-    RandomForestME(df,price=False)
+    #RandomForestME(df,price=False)
     '''
     accuracy = 62.9
 
@@ -154,10 +164,11 @@ def doStats():
     size                    0.147478                  
     '''
     # 64.9 with usertradecount
-    # 67.9 with user trade count and window trade count
+    # 64.4 with user trade count and window trade count
+    # 66.4 with user trade count and window trade count and market avg size(65.7 with so far) and hour of day
     ################# WITH PRICE
     print("-"*20+"RF WITH PRICE")
-    RandomForestME(df,price=True)
+    #RandomForestME(df,price=True)
     '''
     acc=79.2
 
@@ -168,22 +179,25 @@ def doStats():
     size                    0.011875 
     '''
     # 80.2 with user trade count
-    # 82.5 with user trade count and window trade count
+    # 80.6 with user trade count and window trade count
+    # 82.9 with user trade count and window trade count and market avg (80.2 with so far) and hour of day
     ####################################################################################
     ########### XGBOOST IT #############################################################
     print("-"*20+"XGB WITHOUT PRICE")
-    XGBoostME(df,price=False)
+    #XGBoostME(df,price=False)
     '''
     acc = 62.6
 
-    volume                  0.330936
-    account_age_at_trade    0.241058
-    timeFromEnd             0.233566
-    size                    0.194440
+    volume                  0.330936   significant with p-value = 0.0000
+    account_age_at_trade    0.241058   significant with p-value = 0.0000
+    timeFromEnd             0.233566   significant with p-value = 0.0000
+    size                    0.194440   significant with p-value = 0.0037
     '''
-    # 65.8 with user trade count
-    # 68.92 with user trade count and window trade count
-    ############ WITH PRICE
+    # 65.8 with user trade count, significant with p-value = 0.0000
+    # 65.78 with user trade count and (window trade count, significant with p-value = 0.0005)
+    # 65.91 with (hour of day, significant with p-value = 0.0071), user trade count and window trade count
+    # 66.36 with user trade count and window trade count and market avg size so far (67.36 without so far) and hour of day wowie significant with p-value = 0.0000
+    ############# WITH PRICE
     print("-"*20+"XGB WITH PRICE")
     XGBoostME(df,price=True)
     '''
@@ -196,28 +210,28 @@ def doStats():
     size                    0.020827
     '''
     # 79.7 with user trade count
-    # 83.59 with user trade count and window trade count
+    # 81.62 with user trade count and window trade count
+    # 81.76 with hour of day, user trade count and window trade count
+    # 82.14 with user trade count and window trade count and market avg size so far (without so far its 84.24) and hour of day wowie
     ##################################################################################
     ############ NEURAL NETWORK ######################################################
     print("-"*20+"NN WITHOUT PRICE")
     #NeuralNetworkME(df,price=False)
     print("-"*20+"NN WITH PRICE")
     #NeuralNetworkME(df,price=True)
-    return
+    return 
 
 
 def count_trades_in_window(df, t=3600):
     df = df.sort_values('timestamp').copy()
+    df['window_trade_count'] = 0
     
-    counts = []
     for market_id, group in df.groupby('conditionId'):
         timestamps = group['timestamp'].values
-        for ts in timestamps:
-            count = (timestamps >= ts - t).sum()
-            counts.append((market_id, ts, count))
+        counts = [(timestamps >= ts - t).sum() 
+                  for ts in timestamps]
+        df.loc[group.index, 'window_trade_count'] = counts
     
-    count_df = pd.DataFrame(counts, columns=['conditionId', 'timestamp', 'window_trade_count'])
-    df = df.merge(count_df, on=['conditionId', 'timestamp'])
     return df
 
 if __name__ == "__main__":
