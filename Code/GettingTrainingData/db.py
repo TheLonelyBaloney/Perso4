@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from datetime import datetime
 import time
@@ -7,7 +8,11 @@ import pandas as pd
 import requests
 
 def startup():
-    conn = sqlite3.connect("polymarket.db")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(BASE_DIR, 'polymarket.db')
+    
+    conn = sqlite3.connect(DB_PATH)
+
     cur = conn.cursor()
     ######################################## Trades
     cur.execute("""
@@ -109,7 +114,12 @@ def DBgetUsers(conn):
     return pd.read_sql("SELECT * FROM users", conn)
 
 def CheckOutDB():
-    conn = sqlite3.connect("polymarket.db")
+
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_PATH = os.path.join(BASE_DIR, 'polymarket.db')
+    
+    conn = sqlite3.connect(DB_PATH)
+    
     cur = conn.cursor()
 
     cur.execute("""
@@ -133,6 +143,5 @@ def CheckOutDB():
 
 if __name__ == "__main__":
     CheckOutDB()
-    conn=startup()
 else:
     conn = startup()

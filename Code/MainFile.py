@@ -5,15 +5,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from PrintMachine import *
-from GetAPIStuff import *
+from GettingTrainingData.PrintMachine import *
+from GettingTrainingData.GetAPIStuff import *
 from modelsMachine import *
-from db import *
+from GettingTrainingData.db import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy
-import sklearn
+
 
 def doData(): 
 
@@ -99,10 +98,15 @@ def doStats():
     df = df.sort_values(['conditionId', 'timestamp'])
     df['market_avg_size_so_far'] = df.groupby('conditionId')['size'].transform(
         lambda x: x.expanding().mean().shift(1)  # shift(1) excludes current trade
-)
+    )
+
+    trade_count_per_market = df.groupby(['wallet', 'conditionId'])['won'].count().rename('tradeByUserPerMarket')
+    df = df.merge(trade_count_per_market, on=['wallet', 'conditionId'])
+
 
     # quick stats on every column
     print(df.shape) #474870,18
+    print(df.columns)
     print(df.describe())
 
     features = ['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct', 'size', 'price','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']
@@ -117,15 +121,17 @@ def doStats():
                 center=0)        # center colormap at 0
 
     plt.title('Feature Correlation Matrix')
-    #plt.show()
+    plt.show()
 
     #########################################################################################
-    ###################### IF price >0.5 just bet bro #######################################
+    ###################### If price >0.5 just bet bro #######################################
     print("-"*20+"Base") 
     BaseLineME(df)
     '''
     accuracy = 72%
     '''
+
+    #Note MARKET WIN RATE IS IN FEATURETEST.PY
     #########################################################################################
     ##############      LOGISTIC REGRESSION!!! ##############################################
     print("-"*20+"LR WITHOUT PRICE")
@@ -180,7 +186,7 @@ def doStats():
     '''
     # 80.2 with user trade count
     # 80.6 with user trade count and window trade count
-    # 82.9 with user trade count and window trade count and market avg (80.2 with so far) and hour of day
+    # 82.9 with user trade count and window trade count and market avg (82.16 with so far) and hour of day
     ####################################################################################
     ########### XGBOOST IT #############################################################
     print("-"*20+"XGB WITHOUT PRICE")
@@ -226,7 +232,7 @@ def count_trades_in_window(df, t=3600):
     df = df.sort_values('timestamp').copy()
     df['window_trade_count'] = 0
     
-    for market_id, group in df.groupby('conditionId'):
+    for id, group in df.groupby('conditionId'):
         timestamps = group['timestamp'].values
         counts = [(timestamps >= ts - t).sum() 
                   for ts in timestamps]

@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from FeatureTests import test_feature_importance
+from FeatureTests import backtestModel, expectedReturn, test_feature_importance
 
 def BaseLineME(df):
 
@@ -50,11 +50,13 @@ def LogisticRegressionME(df,price): #with or without price
 
 
 def RandomForestME(df,price):
+    df_sample = df.sample(100000, random_state=42)
+    
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','price','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
+        X = df_sample[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size','volume','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
-    y = df.loc[X.index, 'won']
+        X = df_sample[['account_age_at_trade', 'timeFromEnd', 'size','volume','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
+    y = df_sample.loc[X.index, 'won']
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) #standard is 42 for the weights in comment
 
@@ -64,7 +66,7 @@ def RandomForestME(df,price):
         max_depth=10,        # max depth per tree
         max_features=3,
         random_state=42,
-        n_jobs=-1            # use all CPU cores
+        n_jobs=1           
     )
 
     model.fit(X_train, y_train)
@@ -76,6 +78,9 @@ def RandomForestME(df,price):
 
     importances = pd.Series(model.feature_importances_, index=X.columns)
     print(importances.sort_values(ascending=False))
+
+    results = expectedReturn(df,model)
+
     return
 
 def XGBoostME(df, price):
@@ -97,15 +102,15 @@ def XGBoostME(df, price):
     )
     
     cv = RepeatedStratifiedKFold(
-        n_splits=5,    # 5 folds per repeat
-        n_repeats=1,   # repeat 3 times = 15 total evaluations
+        n_splits=5,    
         random_state=42
     )
 
     #for feature in X.columns:
        # test_feature_importance(model, X, y, cv, feature)
 
-        
+    backtestModel(df,model)
+
     scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
     print(f"Individual folds: {scores.round(3)}")
     print(f"Mean accuracy:    {scores.mean():.4f}")
@@ -115,7 +120,7 @@ def XGBoostME(df, price):
     importances = pd.Series(model.feature_importances_, index=X.columns)
     print(importances.sort_values(ascending=False))
 
-
+    results = expectedReturn(df,model)
     
     return
 
