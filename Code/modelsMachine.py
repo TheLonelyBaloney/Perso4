@@ -9,8 +9,7 @@ from xgboost import XGBClassifier
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-
-from FeatureTests import backtestModel, expectedReturn, test_feature_importance
+from FeatureTests import backtestModel
 
 def BaseLineME(df):
 
@@ -79,15 +78,13 @@ def RandomForestME(df,price):
     importances = pd.Series(model.feature_importances_, index=X.columns)
     print(importances.sort_values(ascending=False))
 
-    results = expectedReturn(df,model)
-
     return
 
 def XGBoostME(df, price):
     if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'N_TRADES', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
     else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'user_trade_count', 'window_trade_count','hour_of_day','market_avg_size_so_far']]
+        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'N_TRADES', 'window_trade_count','hour_of_day','market_avg_size_so_far']]
     
     y = df.loc[X.index, 'won']
     
@@ -100,14 +97,15 @@ def XGBoostME(df, price):
         eval_metric='logloss',
         random_state=42
     )
-    
-    cv = RepeatedStratifiedKFold(
-        n_splits=5,    
-        random_state=42
-    )
 
     #for feature in X.columns:
        # test_feature_importance(model, X, y, cv, feature)
+    
+    cv = RepeatedStratifiedKFold(
+        n_splits=5,  
+        n_repeats=1,  
+        random_state=42
+    )
 
     backtestModel(df,model)
 
@@ -118,11 +116,9 @@ def XGBoostME(df, price):
     
     model.fit(X, y)
     importances = pd.Series(model.feature_importances_, index=X.columns)
-    print(importances.sort_values(ascending=False))
-
-    results = expectedReturn(df,model)
+    #print(importances.sort_values(ascending=False))
     
-    return
+    return model
 
 
 def NeuralNetworkME(df, price):

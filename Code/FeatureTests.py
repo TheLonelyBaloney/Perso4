@@ -1,3 +1,4 @@
+import pandas as pd
 from sklearn.model_selection import cross_val_predict
 
 from modelsMachine import *
@@ -68,7 +69,7 @@ def expectedReturn(df, model, epsilon=0.02):
     return precision_by_price
 
 def backtestModel(df, model, epsilon=0.05):
-    X = df[['account_age_at_trade', 'timeFromEnd', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
+    X = df[['account_age_at_trade', 'timeFromEnd', 'volume', 'price', 'N_TRADES', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
     y = df['won']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -85,7 +86,7 @@ def backtestModel(df, model, epsilon=0.05):
     # if the trade we bought won (row['won']==1) than we gain 1-price -platformcut, according to polymarket doc fee is = marketrate*p*q and market rate is about 0.05 for all markets
     bought_trades['return'] = bought_trades.apply(
         lambda row: (1 - row['price'] - (epsilon * (1-row['price']) * row['price'])) if row['won'] == 1 # the cost of a trade is already taken into account with -'price'
-                    else (-row['price'] - epsilon), axis=1
+                    else (-row['price'] - (epsilon * (1-row['price']) * row['price'])), axis=1
     )
     
     # summary
