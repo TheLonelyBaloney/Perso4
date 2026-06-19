@@ -68,8 +68,8 @@ def expectedReturn(df, model, epsilon=0.02):
 
     return precision_by_price
 
-def backtestModel(df, model, epsilon=0.05):
-    X = df[['account_age_at_trade', 'timeFromEnd', 'volume', 'price', 'N_TRADES', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
+def backtestModel(df, model, features, epsilon=0.05):
+    X = df[features]
     y = df['won']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

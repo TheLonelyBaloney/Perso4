@@ -108,14 +108,14 @@ def insertUserToDB(conn,user):
     cur.execute("""
     INSERT OR IGNORE INTO users (wallet, createdAt, weightedVol, nTrades, nMarkets, totalSize, nWins, totalPrice, totalValue, maxSize)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (user.get('proxyWallet'),user['createdAt'],user['weightedVolume'],user['nTrades'],user['nMarkets'],user['totalSize'],user['nWins'], user['totalPrice'], user['totalValue'], user['maxSize'])
+    """, (user.get('proxyWallet'),user['createdAt'],user['weightedVolume'],user['nTrades'],user['nMarkets'],user['totalSize'],user['nWins'], user['totalPrice'], 0, user['maxSize'])
     )
     
     conn.commit()
     return
                   
-def DBgetTrades(conn, limit=10000):
-    return pd.read_sql(f"SELECT conditionId, wallet, timestamp, price, size, outcome, trans_hash FROM trades LIMIT {limit}", conn)
+def DBgetTrades(conn):
+    return pd.read_sql(f"SELECT conditionId, wallet, timestamp, price, size, outcome, trans_hash FROM trades", conn)
 
 def DBgetMarkets(conn):
 

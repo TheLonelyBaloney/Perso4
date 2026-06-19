@@ -20,12 +20,10 @@ def BaseLineME(df):
     print(classification_report(y_true, y_baseline))
 
 
-def LogisticRegressionME(df,price): #with or without price
+def LogisticRegressionME(df,features): #with or without price
 
-    if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','price','user_trade_count','window_trade_count','hour_of_day']] 
-    else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct','user_trade_count','window_trade_count','hour_of_day']] 
+    X = df[features] 
+
     Y = df.loc[X.index, 'won']
 
     X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42) #standard is 42 for the weights in comment
@@ -48,13 +46,11 @@ def LogisticRegressionME(df,price): #with or without price
     return 
 
 
-def RandomForestME(df,price):
+def RandomForestME(df,features):
     df_sample = df.sample(100000, random_state=42)
     
-    if price:
-        X = df_sample[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
-    else:
-        X = df_sample[['account_age_at_trade', 'timeFromEnd', 'size','volume','user_trade_count','window_trade_count','hour_of_day','market_avg_size_so_far']]
+    X = df_sample[features]
+    
     y = df_sample.loc[X.index, 'won']
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) #standard is 42 for the weights in comment
@@ -80,18 +76,18 @@ def RandomForestME(df,price):
 
     return
 
-def XGBoostME(df, price):
-    if price:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'N_TRADES', 'window_trade_count','market_avg_size_so_far','hour_of_day']]
-    else:
-        X = df[['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'N_TRADES', 'window_trade_count','hour_of_day','market_avg_size_so_far']]
+def XGBoostME(df, features):
     
+
+    X = df[features]
     y = df.loc[X.index, 'won']
     
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     model = XGBClassifier(
         n_estimators=200,
         learning_rate=0.05,
-        max_depth=6,
+        max_depth=8,
         subsample=0.8,
         colsample_bytree=0.8,
         eval_metric='logloss',
@@ -101,22 +97,27 @@ def XGBoostME(df, price):
     #for feature in X.columns:
        # test_feature_importance(model, X, y, cv, feature)
     
-    cv = RepeatedStratifiedKFold(
-        n_splits=5,  
-        n_repeats=1,  
-        random_state=42
-    )
+    #cv = RepeatedStratifiedKFold(
+    #    n_splits=5,  
+    #    n_repeats=1,  
+    #    random_state=42
+    #)
 
-    backtestModel(df,model)
+    #backtestModel(df,model,features)
 
-    scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
-    print(f"Individual folds: {scores.round(3)}")
-    print(f"Mean accuracy:    {scores.mean():.4f}")
-    print(f"Std deviation:    {scores.std():.4f}")
+    #scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
+    #print(f"Individual folds: {scores.round(3)}")
+    #print(f"Mean accuracy:    {scores.mean():.4f}")
+    #print(f"Std deviation:    {scores.std():.4f}")
     
-    model.fit(X, y)
+    model.fit(X_train, y_train)
+
+    print(f"Train accuracy: {model.score(X_train, y_train):.3f}")
+    print(f"Test accuracy:  {model.score(X_test, y_test):.3f}")
+    print(classification_report(y_test, model.predict(X_test)))
+
     importances = pd.Series(model.feature_importances_, index=X.columns)
-    #print(importances.sort_values(ascending=False))
+    print(importances.sort_values(ascending=False))
     
     return model
 

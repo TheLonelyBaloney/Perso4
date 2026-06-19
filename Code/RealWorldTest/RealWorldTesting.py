@@ -11,13 +11,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from CleanData import CleanData, count_trades_in_window
 from GettingTrainingData.PrintMachine import print_market
 from GettingTrainingData.db import startup
-from GettingTrainingData.GetAPIStuff import APIgetTradesByMarket
+from GettingTrainingData.GetAPIStuff import APIgetTradesByMarket, collectAllUsersTrades
 
-def testOnNewMarkets(model, epsilon=0.05):
+def testOnNewMarkets(model, features, epsilon=0.05):
     conn = startup()
-    FEATURES = ['account_age_at_trade', 'timeFromEnd', 'size', 'volume', 'price', 'user_trade_count', 'window_trade_count','market_avg_size_so_far','hour_of_day']
     # fetch new closed markets
-    offset = 100
+    offset = 200
     while offset < 4000:
         response = requests.get(
             "https://gamma-api.polymarket.com/markets",
@@ -52,16 +51,23 @@ def testOnNewMarkets(model, epsilon=0.05):
                 "conditionId" : conditionId,
                 "volume": float(market.get('volume')),
                 "market_outcome": outcome,
-                "endDate": market.get('endDate')
+                "endDate": market.get('endDate'),
+                "slug" : market.get("slug"),
+                "startDate":market.get('startDate'),
+                "marketCreate" : market.get('createdAt'),
+                "commentCount" : market.get('events')[0].get('commentCount'),
+                "orderMinSize" : market.get('orderMinSize'),
+                "updatedAt": market.get('updatedAt')
             }
-            tradeInfoKeys = ['proxyWallet','timestamp','price','size','outcome']
+            tradeInfoKeys = ['proxyWallet','timestamp','price','size','outcome','outcomeIndex','profileImage']
             trade_df = pd.DataFrame(trades)[tradeInfoKeys]
+            trade_df['profilePic'] = (trade_df['profileImage'].str.len() > 1).astype(int)
             trade_df['conditionId'] = conditionId
             trade_df = trade_df.rename(columns={'proxyWallet': 'wallet'})
 
             walletsList = trade_df['wallet'].unique().tolist()
 
-            wallets = []
+            users = []
             seenwallets = set()
             for wallet in walletsList:
                 if wallet in seenwallets:
@@ -79,27 +85,22 @@ def testOnNewMarkets(model, epsilon=0.05):
                     continue
                 if not user.get('createdAt'):
                     continue
-                wallets.append({
-                    "wallet":user.get("proxyWallet"),
-                    "account_age": datetime.fromisoformat(user.get('createdAt').replace("Z", "+00:00")).timestamp()
-                })
+                users.append(user)
                 seenwallets.add(wallet)
-                
-
+            print_market(market)
+            users = collectAllUsersTrades(users,None)
             market_df = pd.DataFrame([market_info])
-            user_df = pd.DataFrame(wallets)
+            user_df = pd.DataFrame(users).rename(columns={'proxyWallet': 'wallet','weightedVolume':'weightedVol'})
 
             df = CleanData(trade_df,market_df,user_df)
-
-            X = df[FEATURES]
+            X = df[features]
             y = df['won']
 
             test_df = df.loc[X.index].copy() # copy from df the test data by index
             test_df['predicted_won'] = model.predict(X) # put result into a column
             test_df['confidence'] = model.predict_proba(X)[:, 1]
-
             # make new df where we only take trades we took (ie.) if we predicted it was right/allign we the market outcome and only with good confidence
-            bought_trades = test_df[(test_df['predicted_won'] == 1) & (test_df['confidence'] > 0.80)].copy()
+            bought_trades = test_df[(test_df['predicted_won'] == 1) & (test_df['confidence'] > 0.70)].copy()
             
             # if the trade we bought won (row['won']==1) than we gain 1-price -platformcut, according to polymarket doc fee is = marketrate*p*q and market rate is about 0.05 for all markets
             bought_trades['return'] = bought_trades.apply(
@@ -109,6 +110,8 @@ def testOnNewMarkets(model, epsilon=0.05):
 
             # summary
             min_confidence = bought_trades['confidence'].min()
+            max_confidence = bought_trades['confidence'].max()
+            thoughtWouldWinOverTot = test_df['predicted_won'].sum()/len(test_df)
             total_trades    = len(bought_trades)
             total_invested  = bought_trades['price'].sum()
             total_return    = bought_trades['return'].sum()
@@ -122,6 +125,8 @@ def testOnNewMarkets(model, epsilon=0.05):
             print(f"Total return:    ${total_return:,.2f}")
             print(f"ROI:             {rate:.2f}%")
             print(f"Min confidence:  {min_confidence}")
+            print(f"Max confidence:  {max_confidence}")
+            print(f"Ratio            {thoughtWouldWinOverTot}")
 
             bought_trades['price_bucket'] = pd.cut(bought_trades['price'], bins=[0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]) #cuts the df into bins by 'price'
         

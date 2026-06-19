@@ -1,4 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import requests
+
+from GettingTrainingData.db import insertUserToDB
 
 global LOWERBOUNDPRICE
 LOWERBOUNDPRICE = 0.1
@@ -129,18 +133,29 @@ def APIgetUsersTrades(user):
         params={
             "user":wallet
     })
-    user['nMarkets'] = response.json()['traded']
-    ####### get totValue
-
-    url = "https://data-api.polymarket.com/value"
-
-    response = requests.get(
-        url,
-        params={
-            "user":wallet
-        })
-    user['totalValue'] = response.json()[0]['value']
+    traded = response.json()
+    user['nMarkets'] = traded['traded']
     return user
+
+def collectAllUsersTrades(walletsList, conn):
+    results = []
+    
+    # fetch all users in parallel 10 workers check if pc works or burns guh
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(APIgetUsersTrades, w): w
+            for w in walletsList
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+
+    if conn == None:
+        return results
+    
+    for user in results:
+        insertUserToDB(conn, user)
+    
 
 if __name__ == "__main__":
     #print(APIgetMarkets()[0]) # 0xffdbbf2c3b9aa808abbcb35beb2b20a93572570aa5dd1bd1b630cade2f809f26

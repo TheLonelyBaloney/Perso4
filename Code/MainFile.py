@@ -1,6 +1,6 @@
 import joblib
 import seaborn as sns
-from CleanData import CleanData
+from CleanData import CleanData, buildMarketLevelFeatures
 from RealWorldTest.RealWorldTesting import *
 from GettingTrainingData.PrintMachine import *
 from GettingTrainingData.GetAPIStuff import *
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 def doData(): 
     
-    events = APIgetEventsStuff(start_date_min=1767311999)
+    events = APIgetEventsStuff(start_date_min=1735775999,offset = 300)
     count = 0
     for event in events:
         markets = event['markets']
@@ -30,13 +30,11 @@ def doData():
             if not insertMarketToDB(conn,market,event): #### INSERT MARKET TO DB HERE
                 print("insert Failed")
                 continue
-
+            
+            walletList = []
             for trade in trades:
-
                 insertTradeToDB(conn,trade) #### INSERT TRADE TO DB
-
                 proxyWallet = trade['proxyWallet']
-
                 ##### check DB first 
                 cur = conn.cursor()
                 cur.execute("SELECT wallet FROM users WHERE wallet = ?", (proxyWallet,))
@@ -44,12 +42,10 @@ def doData():
                     continue 
                 #####  else
                 user = APIgetUserByProxyWallet(proxyWallet)
-                if 'error' in user.keys():
-                    #insertUserToDB(conn,{"createdAt":"NULL","proxyWallet":0}) #deleted account? (JUST NEED TO DO ONCE, ALL TRADES WITH NO WALLET COUNT FOR HIM)
+                if 'error' in user.keys(): #deletedAcc
                     continue
-                user = APIgetUsersTrades(user)
-                insertUserToDB(conn,user)
-                #####
+                walletList.append(user)
+            collectAllUsersTrades(walletList,conn) #Decided to do some multithreading to speed up the api calls so all the inserts are in here
             print(f'With count: {count}')  
             CheckOutDB()
     return
@@ -57,31 +53,30 @@ def doData():
 
 def doStats():
 
-    df_trades  = DBgetTrades(conn, 574024) # Total trades is 574024
-    df_markets = pd.read_sql("SELECT * FROM markets", conn).rename(columns={'outcome': 'market_outcome'})
+    df_trades  = pd.read_sql("SELECT * FROM trades",conn)
+    df_markets = pd.read_sql("SELECT * FROM markets", conn).rename(columns={'outcome': 'market_outcome','createdAt':'marketCreate'})
     df_users   = pd.read_sql("SELECT * FROM users", conn)
 
-    df = CleanData(df_trades,df_markets,df_users)
+    df = CleanData(df_trades,df_markets,df_users) #lost 200k
 
-
-    # quick stats on every column
-    print(df.shape) #474870,18
+    print(df.shape) #381378,35
     print(df.describe())
+    print(df.columns)
 
-    features = ['account_age_at_trade', 'timeFromEnd', 'sizeToVolumePct', 'size', 'price','N_TRADES','window_trade_count','hour_of_day','market_avg_size_so_far']
-    corr_matrix = df[features].corr()
+    features = ['price', 'size', 'volume', 'commentCount','weightedVol','nTrades','nMarkets','totalSize','nWins','totalPrice','maxSize','startToLastUpdate','createdToStart','tradeTimeFromEnd','account_age_at_trade','window_trade_count','hour_of_day','market_avg_size_so_far','tradeByUserPerMarket','profilePic']
+    
+    #corr_matrix = df[features].corr()
     #print(corr_matrix)
 
 
-    sns.heatmap(corr_matrix, 
-                annot=True,      # show values
-                fmt='.2f',       # 2 decimal places
-                cmap='coolwarm', # red=positive, blue=negative
-                center=0)        # center colormap at 0
+    #sns.heatmap(corr_matrix, 
+    #            annot=True,      # show values
+    #           fmt='.2f',       # 2 decimal places
+    #            cmap='coolwarm', # red=positive, blue=negative
+    #            center=0)        # center colormap at 0
 
-    plt.title('Feature Correlation Matrix')
+    #plt.title('Feature Correlation Matrix')
     #plt.show()
-
     #########################################################################################
     ###################### If price >0.5 just bet bro #######################################
     #print("-"*20+"Base") 
@@ -92,10 +87,8 @@ def doStats():
     #Note MARKET WIN RATE IS IN FEATURETEST.PY
     #########################################################################################
     ##############      LOGISTIC REGRESSION!!! ##############################################
-    #LogisticRegressionME(df,price=False) 
-    # 54.6
     ##################### WITH PRICE
-    #LogisticRegressionME(df,price=True)
+    #LogisticRegressionME(df,features)
     # 72.2 
     #######################################################################################
     ################ RANDOM FOREST!!!  ####################################################
@@ -104,20 +97,24 @@ def doStats():
     # 64.4 with user trade count and window trade count
     # 66.4 with user trade count and window trade count and market avg size(65.7 with so far) and hour of day
     ################# WITH PRICE
-    #RandomForestME(df,price=True)
+    #RandomForestME(df,features)
     # 80.0 ish 
     ####################################################################################
     ########### XGBOOST IT #############################################################
     #XGBoostME(df,price=False)
     # 65.8 with user trade count, significant with p-value = 0.0000
     # 65.78 with user trade count and (window trade count, significant with p-value = 0.0005)
+
     # 65.91 with (hour of day, significant with p-value = 0.0071), user trade count and window trade count
     # 66.36 with user trade count and window trade count and market avg size so far (67.36 without so far) and hour of day wowie significant with p-value = 0.0000
     ############# WITH PRICE
 
     print("--------------------XGB WITH PRICE")
-    model = XGBoostME(df,price=True)
-
+    model = XGBoostME(df,features)
+    #testOnNewMarkets(model,features)
+    #XGBoostME(market_features,['avg_price', 'last_price', 'price_std', 'n_trades', 
+    #                 'n_unique_traders', 'avg_size', 'total_volume', 
+    #                  'avg_account_age','account_age_std', 'buy_pressure']) #itsbaaad
     # 82.14 with user trade count and window trade count and market avg size so far (without so far its 84.24) and hour of day wowie
     ##################################################################################
     ############ NEURAL NETWORK ######################################################
@@ -137,7 +134,7 @@ def doTestRuns():
     return
 
 if __name__ == "__main__":
-    doData()
-    #doStats()
+    #doData()
+    doStats()
     #doTestRuns()
     print("Done!")
