@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 import requests
 
@@ -140,8 +141,8 @@ def APIgetUsersTrades(user):
 def collectAllUsersTrades(walletsList, conn):
     results = []
     
-    # fetch all users in parallel 10 workers check if pc works or burns guh
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    # fetch all users in parallel 9 (10 was too much) workers check if pc works or burns guh
+    with ThreadPoolExecutor(max_workers=9) as executor:
         futures = {
             executor.submit(APIgetUsersTrades, w): w
             for w in walletsList
@@ -155,7 +156,6 @@ def collectAllUsersTrades(walletsList, conn):
     
     for user in results:
         insertUserToDB(conn, user)
-    
 
 if __name__ == "__main__":
     #print(APIgetMarkets()[0]) # 0xffdbbf2c3b9aa808abbcb35beb2b20a93572570aa5dd1bd1b630cade2f809f26

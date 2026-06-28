@@ -12,7 +12,7 @@ def CleanData(df_trades,df_markets,df_users):
     df['endDate'] = pd.to_datetime(df['endDate'], format='ISO8601') ## endDate -> datetime
     df['endDate'] = df['endDate'].apply(lambda x: x.timestamp() if pd.notna(x) else None )  ## datetime -> timestamp
     df = df.dropna(subset=['endDate']) #drop if endDate is Na (about 1% of them)
-
+   
     df['startDate'] = pd.to_datetime(df['startDate'], format='ISO8601') ## endDate -> datetime
     df['startDate'] = df['startDate'].apply(lambda x: x.timestamp() if pd.notna(x) else None )  ## datetime -> timestamp
     df = df.dropna(subset=['startDate']) 
@@ -49,6 +49,12 @@ def CleanData(df_trades,df_markets,df_users):
 
     trade_count_per_market = df.groupby(['wallet', 'conditionId'])['won'].count().rename('tradeByUserPerMarket')
     df = df.merge(trade_count_per_market, on=['wallet', 'conditionId'])
+
+    df['size/vol'] = (df['size']/df['volume'])
+    df['nMark/nTrades'] =(df['nMarkets']/df['nTrades'])
+    df['nWins/nTrades'] = (df['nWins']/df['nTrades'])
+    df['avgPrice'] = (df['totalPrice']/df['nTrades'])
+    df['avgSize'] = (df['totalSize']/df['nTrades'])
 
 
     return df

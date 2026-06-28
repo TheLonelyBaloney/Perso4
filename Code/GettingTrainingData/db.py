@@ -151,10 +151,27 @@ def CheckOutDB():
 
     return
 
+def addIfWon(conn):
+    cur = conn.cursor()
+    
+    cur.execute("""
+        UPDATE trades
+        SET won = CASE 
+            WHEN outcome = (
+                SELECT outcome FROM markets WHERE markets.conditionId = trades.conditionId
+            ) THEN 1
+            ELSE 0
+        END
+    """)
+    conn.commit()
+    print(f"Done! {cur.rowcount} trades updated.")
+        
 
+    return
 if __name__ == "__main__":
     CheckOutDB()
     conn = startup()
+    addIfWon(conn)
 
 else:
     conn = startup()

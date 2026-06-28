@@ -9,7 +9,7 @@ from xgboost import XGBClassifier
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from FeatureTests import backtestModel
+from FeatureTests import backtestModel, test_feature_importance
 
 def BaseLineME(df):
 
@@ -76,26 +76,45 @@ def RandomForestME(df,features):
 
     return
 
-def XGBoostME(df, features):
+def sampleDiverseUsers(group, n):
+    # shuffle the group BEFORE dropping duplicates
+    group = group.sample(frac=1, random_state=42)  # frac=1 = shuffle all rows
     
+    unique_wallets = group.drop_duplicates(subset='wallet')
+    
+    if len(unique_wallets) >= n:
+        return unique_wallets.sample(n, random_state=42)
+    else:
+        remaining_needed = n - len(unique_wallets)
+        other_trades = group[~group.index.isin(unique_wallets.index)]
+        extra_sample = other_trades.sample(min(remaining_needed, len(other_trades)), random_state=42)
+        return pd.concat([unique_wallets, extra_sample])
+    
+def XGBoostME(df, features, n:int):
+    
+    df_sampled = df.groupby('conditionId').apply(
+    lambda x: sampleDiverseUsers(x,n)).reset_index(drop=True)
 
-    X = df[features]
-    y = df.loc[X.index, 'won']
+    print(df_sampled.shape)
+    
+    X = df_sampled[features]
+    y = df_sampled.loc[X.index, 'won']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     model = XGBClassifier(
-        n_estimators=200,
-        learning_rate=0.05,
+        n_estimators=300,
+        learning_rate=0.02,
         max_depth=8,
         subsample=0.8,
         colsample_bytree=0.8,
         eval_metric='logloss',
-        random_state=42
+        random_state = 42
     )
 
+    #cv=5
     #for feature in X.columns:
-       # test_feature_importance(model, X, y, cv, feature)
+        #test_feature_importance(model, X, y, cv, feature)
     
     #cv = RepeatedStratifiedKFold(
     #    n_splits=5,  
@@ -114,10 +133,10 @@ def XGBoostME(df, features):
 
     print(f"Train accuracy: {model.score(X_train, y_train):.3f}")
     print(f"Test accuracy:  {model.score(X_test, y_test):.3f}")
-    print(classification_report(y_test, model.predict(X_test)))
+    #print(classification_report(y_test, model.predict(X_test)))
 
     importances = pd.Series(model.feature_importances_, index=X.columns)
-    print(importances.sort_values(ascending=False))
+    #print(importances.sort_values(ascending=False))
     
     return model
 
