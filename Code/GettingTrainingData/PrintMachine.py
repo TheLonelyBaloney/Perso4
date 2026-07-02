@@ -1,6 +1,8 @@
 from pprint import pprint
 
 
+#asked claude to make me a printer cuz aint no way im doing all that "front" end stuff
+
 
 def print_event(event: dict):
     # ── Core Identity ──────────────────────────────────────────
@@ -51,6 +53,7 @@ def print_market(m: dict):
     print(f"  Flags   : {' | '.join(flags) or 'none'}")
     print(f"  {'─'*56}\n")
 
+# This one is mine tho
 def print_trade(t :dict):
     print(f"  {'─'*50}")
 

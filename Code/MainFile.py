@@ -70,7 +70,7 @@ def doStats():
 
     df = CleanData(df_trades,df_markets,df_users) 
 
-    print(df.shape) #381378,35
+    print(df.shape) 
     print(df.describe())
     print(df.columns)
 
@@ -83,7 +83,7 @@ def doStats():
     sns.heatmap(corr_matrix, 
                 annot=True,      # show values
                 fmt='.2f',       # 2 decimal places
-                cmap='coolwarm', # red=positive, blue=negative
+                cmap='coolwarm', # red to blue
                 center=0)        # center colormap at 0
 
     plt.title('Feature Correlation Matrix')
