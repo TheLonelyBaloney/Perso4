@@ -8,7 +8,5 @@ have access only at the time the trade is performed).
 
 Maybe try some machine learning at the same time since it seems to be a pretty powerful tool.
  
-currentDB has:
-675k trades from
-2471 markets and
-103k users
+Old Db had ~1m trades 
+Outsourced new db from huggingface 
