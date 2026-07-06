@@ -3,18 +3,18 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score, train_test_split
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score,  train_test_split
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from FeatureTests import backtestModel, test_feature_importance
 
-def BaseLineME(df):
+
+def BaseLineME(df,baseline=0.5):
 
     y_true = df['won']
-    y_baseline = (df['price'] > 0.5).astype(int)
+    y_baseline = (df['price'] > baseline).astype(int)
 
     print(f"Baseline accuracy: {accuracy_score(y_true, y_baseline):.3f}")
     print(classification_report(y_true, y_baseline))
@@ -92,8 +92,9 @@ def sampleDiverseUsers(group, n):
     
 def XGBoostME(df, features, n:int):
     
-    df_sampled = df.groupby('conditionId').apply(
-    lambda x: sampleDiverseUsers(x,n)).reset_index(drop=True)
+    
+    df_sampled = df.groupby('condition_id').apply(
+    lambda x: x.sample(20) if len(x)> 20 else x.sample(len(x))).reset_index(drop=True)
 
     print(df_sampled.shape)
     
@@ -111,23 +112,19 @@ def XGBoostME(df, features, n:int):
         eval_metric='logloss',
         random_state = 42
     )
-
-    #cv=5
-    #for feature in X.columns:
-        #test_feature_importance(model, X, y, cv, feature)
     
-    #cv = RepeatedStratifiedKFold(
-    #    n_splits=5,  
-    #    n_repeats=1,  
-    #    random_state=42
-    #)
+    cv = RepeatedStratifiedKFold(
+        n_splits=5,  
+        n_repeats=1,  
+        random_state=42
+    )
 
     #backtestModel(df,model,features)
 
-    #scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
-    #print(f"Individual folds: {scores.round(3)}")
-    #print(f"Mean accuracy:    {scores.mean():.4f}")
-    #print(f"Std deviation:    {scores.std():.4f}")
+    scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
+    print(f"Individual folds: {scores.round(3)}")
+    print(f"Mean accuracy:    {scores.mean():.4f}")
+    print(f"Std deviation:    {scores.std():.4f}")
     
     model.fit(X_train, y_train)
 
@@ -136,7 +133,7 @@ def XGBoostME(df, features, n:int):
     #print(classification_report(y_test, model.predict(X_test)))
 
     importances = pd.Series(model.feature_importances_, index=X.columns)
-    #print(importances.sort_values(ascending=False))
+    print(importances.sort_values(ascending=False))
     
     return model
 

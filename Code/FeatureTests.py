@@ -3,30 +3,7 @@ from sklearn.model_selection import cross_val_predict
 
 from modelsMachine import *
 
-from scipy import stats
 
-
-def test_feature_importance(model, X, y, cv, feature_name):
-    """
-    Compare model accuracy with vs without a feature
-    using a paired t-test across CV folds
-    """
-    # scores with feature
-    scores_with = cross_val_score(model, X, y, cv=cv, scoring='accuracy', n_jobs=-1)
-    
-    # scores without feature
-    X_without = X.drop(columns=[feature_name])
-    scores_without = cross_val_score(model, X_without, y, cv=cv, scoring='accuracy', n_jobs=-1)
-    
-    # paired t-test
-    t_stat, p_value = stats.ttest_rel(scores_with, scores_without)
-    
-    print(f"\nFeature: {feature_name}")
-    print(f"Mean with:    {scores_with.mean():.4f}")
-    print(f"Mean without: {scores_without.mean():.4f}")
-    print(f"Difference:   {scores_with.mean() - scores_without.mean():.4f}")
-    print(f"T-statistic:  {t_stat:.4f}")
-    print(f"P-value:      {p_value:.4f}")
 
 
 def expectedReturn(df, model, epsilon=0.02):

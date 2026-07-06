@@ -1,5 +1,3 @@
-from pprint import pprint
-
 
 #asked claude to make me a printer cuz aint no way im doing all that "front" end stuff
 

@@ -8,5 +8,8 @@ have access only at the time the trade is performed).
 
 Maybe try some machine learning at the same time since it seems to be a pretty powerful tool.
  
+
 Old Db had ~1m trades 
-Outsourced new db from huggingface 
+Outsourced new db from huggingface https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data
+
+
