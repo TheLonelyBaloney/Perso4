@@ -10,6 +10,14 @@ Maybe try some machine learning at the same time since it seems to be a pretty p
  
 
 Old Db had ~1m trades 
-Outsourced new db from huggingface https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data
+Outsourced new db from huggingface 
+@misc{polymarket_data_2026,
+  title={Polymarket Data: Complete Data Infrastructure for Polymarket},
+  author={Wang, Zhengjie and Chao, Leiyu and Bao, Yu and Cheng, Lian and Liao, Jianhan and Li, Yikang},
+  year={2026},
+  howpublished={\url{https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data}},
+  note={A comprehensive dataset and toolkit for Polymarket prediction markets}
+}
+
 
 
