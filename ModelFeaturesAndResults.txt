@@ -70,3 +70,14 @@ price_bucket
 (0.6, 0.7]     9165  0.720786    409.508114    0.044682
 (0.7, 0.8]     9125  0.843616    647.127777    0.070918
 (0.8, 0.9]    13955  0.941311   1079.342342    0.077344
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Going with cats theres about 3~4 types of trades,
+1. bots trading at margins (3,4,5,6) (99%+)
+2. Noise (-1) which comprises over 50% of users characterized by high average price (~60%) probably to keep it safe though high std, very chaotic, higher-ish quartiles of nMarkets
+3. Low price trades (1)
+4. Lowish max spend (2) Second most populous group with ~50% winrate
+5. oddballs? (0) lower mean price than 2 but higher mean win_rate
+
