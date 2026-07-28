@@ -1,6 +1,7 @@
 import os
 import traceback
-
+import shutil
+shutil.rmtree("C:/xgboost_cache/", ignore_errors=True) 
 try: 
     from random import shuffle
 
@@ -32,7 +33,7 @@ try:
             self._current_batch = None  # The current chunk of data
             self._finished = False
             
-            cache_dir = "X:/xgboost_cache/"  # Choose your X drive folder
+            cache_dir = "C:/xgboost_cache/" 
             os.makedirs(cache_dir, exist_ok=True)
             super().__init__(cache_prefix=os.path.join(cache_dir, "cache"))
         
@@ -74,7 +75,6 @@ try:
                 )
                 
                 if len(chunk) == 0:
-                    print("FINISHED FILE")
                     self._current_lazy = None
                     self._file_idx += 1
                     self._offset = 0
@@ -107,41 +107,15 @@ try:
         print("Starting chunked evaluation...")
         
         for file_idx, test_file in enumerate(test_files):
-            print(f"\n Processing file {file_idx + 1}/{len(test_files)}: {test_file}")
+            print(f"Testing")
+            test_lazy = pl.scan_parquet(test_file).select(feature_cols + [target_col])
 
-            trades_lazy = pl.scan_parquet(test_file)
-            
-            processed_lazy = (trades_lazy
-                .join(market_df.lazy(), on="condition_id", how="left")
-                .with_columns([
-                    pl.from_epoch(pl.col("timestamp"), time_unit="s").alias("timestamp_datetime"),
-                    pl.col("timestamp").alias("timestamp_unix"),
-                ])
-                .with_columns([
-                    (pl.col("timestamp_unix") - pl.col("created_at_unix")).alias("time_since_start"),
-                    (pl.col("end_date_unix") - pl.col("timestamp_unix")).alias("time_until_end"),
-                    (pl.col("timestamp_datetime").dt.hour()).alias("hour_of_day"),
-                    (pl.col("timestamp_datetime").dt.weekday()).alias("day_of_week"),
-                    (pl.col("prior_wins") / pl.col("cum_trades")).alias("winrate"),
-                    (pl.col("cum_price_prior") / pl.col("cum_trades")).alias("avg_price"),
-                    pl.when(pl.col("direction") == "BUY").then(1)
-                        .when(pl.col("direction") == "SELL").then(0)
-                        .otherwise(-1)
-                        .alias("direction"),
-                    pl.when(pl.col("role") == "taker").then(1)
-                        .when(pl.col("role") == "maker").then(0)
-                        .otherwise(-1)
-                        .alias("role")
-                ])
-                .select(feature_cols + [target_col])
-            )
-            
             offset = 0
             file_rows = 0
             file_correct = 0
             
             while True:
-                chunk = (processed_lazy
+                chunk = (test_lazy
                     .slice(offset, chunk_size)
                     .collect(engine="streaming")
                 )
@@ -241,12 +215,12 @@ try:
 
     target_col = "won"
 
-    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/NoisyUsers/preprocessed*.parquet"))
+    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/Users2/preprocessed*.parquet"))
     print(f"Found {len(all_files)} files")
 
 
-    train_files = all_files[:2]
-    test_files = all_files[6:]
+    train_files = all_files[:4]
+    test_files = all_files[4:]
 
 
     print(f"Training on {len(train_files)} files")
@@ -257,7 +231,7 @@ try:
     for f in test_files:
         print(f"  - {f}")
 
-    print("Starting training...")   
+      
     train_iterator = TrueStreamingIterator(
         file_paths=train_files,
         feature_cols=feature_cols,
@@ -267,6 +241,7 @@ try:
 
     dtrain = xgb.ExtMemQuantileDMatrix(
         data=train_iterator,
+        max_bin=128
     )
     
 
@@ -274,17 +249,18 @@ try:
         'objective': 'binary:logistic',
         'tree_method': 'hist',
         'max_depth': 5,
-        'learning_rate': 0.1,
+        'learning_rate': 0.05,
         'subsample': 0.8,
         'colsample_bytree': 0.8,
-        'nthread': 4,
         'verbosity':3,
+        'max_bin':128,
     }
 
-
-    model = xgb.train(params, dtrain, num_boost_round=25)
+    print("Starting training...") 
+    model = xgb.train(params, dtrain, num_boost_round=100,early_stopping_rounds = 10, evals = [(dtrain, "train")],verbose_eval=True)
 
     print("Training complete!")
+    joblib.dump(model,"xgboostedMF.joblib")
     ################################################################################
     print("\n" + "="*60)
     print("STARTING TEST EVALUATION")
@@ -308,6 +284,6 @@ try:
     print(f"F1 Score:             {results['f1']:.4f}")
     print(f"AUC:                  {results['auc']:.4f}")
 
-    joblib.dump(model,"xgboostedMF.joblib")
+    
 except Exception:
     traceback.print_exc()

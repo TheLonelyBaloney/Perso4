@@ -48,7 +48,7 @@ def updateToAddWon():
 
 def addFEATUREStodb():
 
-    conn = duckdb.connect("X:/PolymarketData/ByCats/NoisyUsers/NoisyUsers.db")
+    conn = duckdb.connect("X:/PolymarketData/ByCats/Users2/Users2.db")
     conn.execute("SET enable_progress_bar = true")
     conn.execute("SET enable_progress_bar_print = true")
     conn.execute("ATTACH 'X:/PolymarketData/UsersCats.db' AS usercats_db")
@@ -61,17 +61,17 @@ def addFEATUREStodb():
     # get address boundaries to split into ~20 chunks
     bounds = conn.execute("""
         SELECT address FROM usercats_db.UserCats
-        WHERE category = -1
+        WHERE category = 2
         ORDER BY address
     """).df()["address"].tolist()
 
-    n_chunks = 10
+    n_chunks = 5
     step = len(bounds) // n_chunks
     bounds = [bounds[i * step] for i in range(n_chunks)]
 
     bounds = [''] + bounds + [None] 
     print("Bucket bounds found...")
-    for i in range(6,len(bounds) - 1):
+    for i in range(len(bounds) - 1):
         lower = bounds[i]
         upper = bounds[i+1]
         where_clause = f"address >= '{lower}'" if lower else "TRUE"
@@ -96,17 +96,17 @@ def addFEATUREStodb():
                         PARTITION BY address ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
                         ) AS cum_price_prior,
                         timestamp - LAG(timestamp) OVER (PARTITION BY address ORDER BY timestamp) AS time_since_last_trade
-                    FROM NoisyUsers
+                    FROM Users2
                     WHERE {where_clause}
                 )
                 SELECT * FROM base
-            ) TO 'X:/PolymarketData/ByCats/NoisyUsers/NewNoisyUsers_part{i}.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
+            ) TO 'X:/PolymarketData/ByCats/Users2/NewUsers2_part{i}.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
         """
         print(f"Running chunk {i}...")
         conn.execute(query)
 
 def addmorefeatures(feature_cols,target_col):
-    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/NoisyUsers/*.parquet"))
+    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/Users2/*.parquet"))
     market_df = pl.read_parquet("X:/PolymarketData/markets.parquet")
     market_df = market_df.with_columns([
         pl.col("created_at").dt.epoch(time_unit="s").alias("created_at_unix"),
@@ -139,7 +139,7 @@ def addmorefeatures(feature_cols,target_col):
             ])
             .select(feature_cols + [target_col])
         )
-        processed.sink_parquet(f"X:/PolymarketData/preprocessedNoisyUser_train{i}.parquet")
+        processed.sink_parquet(f"X:/PolymarketData/ByCats/Users2/preprocessedUsers2_train{i}.parquet")
 feature_cols = [
         "time_since_start", 
         "time_until_end", 
@@ -159,4 +159,5 @@ feature_cols = [
         "direction"
     ]
 target_col = "won"
+addFEATUREStodb()
 addmorefeatures(feature_cols,target_col)
