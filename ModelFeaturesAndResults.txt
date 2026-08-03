@@ -81,3 +81,36 @@ Going with cats theres about 3~4 types of trades,
 4. Lowish max spend (2) Second most populous group with ~50% winrate
 5. oddballs? (0) lower mean price than 2 but higher mean win_rate
 
+
+FEATURES:
+FOR CATS:
+    COUNT(*) AS nTrades,
+    COUNT(DISTINCT market_id) as nMarkets, 
+    AVG(CAST(won AS INTEGER)) AS win_rate, 
+    AVG(usd_amount) as avg_spent, 
+    SUM(usd_amount) as total_spent, 
+    MAX(usd_amount) as max_spent, 
+    AVG(price) as avg_price
+
+    features = ['avg_price', 'avg_spent', 'max_spent', 'nMarkets', 'nTrades', 'total_spent', 'win_rate']
+
+FOR XGBOOST:
+    feature_cols = [
+            "time_since_start", 
+            "time_until_end", 
+            "hour_of_day", 
+            "day_of_week", 
+            "winrate",
+            "cum_spent_prior",
+            "cum_max_spent",
+            "highest_price_yet",
+            "lowest_price_yet",
+            "avg_price",
+            "time_since_last_trade",
+            "role",
+            "usd_amount",
+            "token_amount",
+            "price",
+            "direction"
+        ]
+

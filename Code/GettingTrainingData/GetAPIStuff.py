@@ -160,5 +160,5 @@ def collectAllUsersTrades(walletsList, conn):
 if __name__ == "__main__":
     #print(APIgetMarkets()[0]) # 0xffdbbf2c3b9aa808abbcb35beb2b20a93572570aa5dd1bd1b630cade2f809f26
     #print(APIgetTradesByMarket(0xffdbbf2c3b9aa808abbcb35beb2b20a93572570aa5dd1bd1b630cade2f809f26)[0]) # 0xfde390670e0dd39f2a780bb569b882feaee8b73d
-    print(APIgetUserByProxyWallet('0xfde390670e0dd39f2a780bb569b882feaee8b73d'))
+    #print(APIgetUserByProxyWallet('0xfde390670e0dd39f2a780bb569b882feaee8b73d'))
     print("wrong place buddy")
