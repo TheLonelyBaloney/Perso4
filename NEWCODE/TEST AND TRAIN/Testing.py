@@ -5,7 +5,7 @@ import pandas as pd
 import xgboost as xgb
 from sklearn import metrics
 from sklearn.metrics import accuracy_score, classification_report
-NoisyTestFile = 'x:/PolymarketData/ByCats/NoisyUsers/preprocessedNoisyUser_train4.parquet'
+NoisyTestFile = 'x:/PolymarketData/ByCats/NoisyUsers/preprocessedNoisyUser_train5.parquet'
 Users0TestFile = 'x:/PolymarketData/ByCats/Users0/preprocessedUsers0_train4.parquet'
 Users1TestFile = 'x:/PolymarketData/ByCats/Users1/preprocessedUsers1_train4.parquet'
 Users2TestFile = 'x:/PolymarketData/ByCats/Users2/preprocessedUsers2_train4.parquet'
@@ -24,7 +24,6 @@ def testingOnSubset(Testfile, model):
         "lowest_price_yet",
         "avg_price",
         "time_since_last_trade",
-        "role",
         "usd_amount",
         "token_amount",
         "price",
@@ -57,5 +56,5 @@ def testingOnSubset(Testfile, model):
     for feature, score in sorted(named_importance.items(), key=lambda x: -x[1]):
         print(f"{feature}: {score}")
     
-model = joblib.load("xgboostedMFUsers2.joblib")
-testingOnSubset(Users2TestFile,model)
+model = joblib.load("xgboostedMF.joblib")
+testingOnSubset(NoisyTestFile,model)

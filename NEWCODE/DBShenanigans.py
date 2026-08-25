@@ -48,7 +48,7 @@ def updateToAddWon():
 
 def addFEATUREStodb():
 
-    conn = duckdb.connect("X:/PolymarketData/ByCats/Users2/Users2.db")
+    conn = duckdb.connect("X:/PolymarketData/ByCats/NoisyUsers/NoisyUsers.db")
     conn.execute("SET enable_progress_bar = true")
     conn.execute("SET enable_progress_bar_print = true")
     conn.execute("ATTACH 'X:/PolymarketData/UsersCats.db' AS usercats_db")
@@ -61,7 +61,7 @@ def addFEATUREStodb():
     # get address boundaries to split into ~20 chunks
     bounds = conn.execute("""
         SELECT address FROM usercats_db.UserCats
-        WHERE category = 2
+        WHERE category = -1
         ORDER BY address
     """).df()["address"].tolist()
 
@@ -96,17 +96,17 @@ def addFEATUREStodb():
                         PARTITION BY address ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
                         ) AS cum_price_prior,
                         timestamp - LAG(timestamp) OVER (PARTITION BY address ORDER BY timestamp) AS time_since_last_trade
-                    FROM Users2
+                    FROM NoisyUsers
                     WHERE {where_clause}
                 )
                 SELECT * FROM base
-            ) TO 'X:/PolymarketData/ByCats/Users2/NewUsers2_part{i}.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
+            ) TO 'X:/PolymarketData/ByCats/NoisyUsers/NewNoisyUsers_part{i}.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
         """
         print(f"Running chunk {i}...")
         conn.execute(query)
 
 def addmorefeatures(feature_cols,target_col):
-    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/Users2/*.parquet"))
+    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/NoisyUsers/*.parquet"))
     market_df = pl.read_parquet("X:/PolymarketData/markets.parquet")
     market_df = market_df.with_columns([
         pl.col("created_at").dt.epoch(time_unit="s").alias("created_at_unix"),
@@ -132,14 +132,10 @@ def addmorefeatures(feature_cols,target_col):
                     .when(pl.col("direction") == "SELL").then(0)
                     .otherwise(-1)
                     .alias("direction"),
-                pl.when(pl.col("role") == "taker").then(1)
-                    .when(pl.col("role") == "maker").then(0)
-                    .otherwise(-1)
-                    .alias("role")
             ])
             .select(feature_cols + [target_col])
         )
-        processed.sink_parquet(f"X:/PolymarketData/ByCats/Users2/preprocessedUsers2_train{i}.parquet")
+        processed.sink_parquet(f"X:/PolymarketData/ByCats/NoisyUsers/preprocessedNoisyUsers_train{i}.parquet")
 feature_cols = [
         "time_since_start", 
         "time_until_end", 
@@ -159,5 +155,5 @@ feature_cols = [
         "direction"
     ]
 target_col = "won"
-addFEATUREStodb()
-addmorefeatures(feature_cols,target_col)
+#addFEATUREStodb()
+#addmorefeatures(feature_cols,target_col)

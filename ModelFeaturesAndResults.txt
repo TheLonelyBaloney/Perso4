@@ -107,7 +107,6 @@ FOR XGBOOST:
             "lowest_price_yet",
             "avg_price",
             "time_since_last_trade",
-            "role",
             "usd_amount",
             "token_amount",
             "price",

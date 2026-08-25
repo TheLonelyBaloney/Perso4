@@ -1,4 +1,5 @@
 import os
+import random
 import traceback
 import shutil
 shutil.rmtree("C:/xgboost_cache/", ignore_errors=True) 
@@ -97,7 +98,6 @@ try:
 
     def evaluate_test_files_chunked(test_files, model, market_df, feature_cols, target_col, chunk_size=2_000_000):
         total_samples = 0
-        total_correct = 0
         total_tp = 0
         total_fp = 0
         total_fn = 0
@@ -206,7 +206,6 @@ try:
         "lowest_price_yet",
         "avg_price",
         "time_since_last_trade",
-        "role",
         "usd_amount",
         "token_amount",
         "price",
@@ -215,12 +214,12 @@ try:
 
     target_col = "won"
 
-    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/Users2/preprocessed*.parquet"))
+    all_files = sorted(glob.glob("X:/PolymarketData/ByCats/NoisyUsers/preprocessed*.parquet"))
     print(f"Found {len(all_files)} files")
 
 
-    train_files = all_files[:4]
-    test_files = all_files[4:]
+    train_files = all_files[:5]
+    test_files = all_files[5:]
 
 
     print(f"Training on {len(train_files)} files")
@@ -250,17 +249,17 @@ try:
         'tree_method': 'hist',
         'max_depth': 5,
         'learning_rate': 0.05,
-        'subsample': 0.8,
+        'subsample': 0.7,
         'colsample_bytree': 0.8,
         'verbosity':3,
         'max_bin':128,
     }
 
     print("Starting training...") 
-    model = xgb.train(params, dtrain, num_boost_round=100,early_stopping_rounds = 10, evals = [(dtrain, "train")],verbose_eval=True)
+    model = xgb.train(params, dtrain, num_boost_round=50,early_stopping_rounds = 10, evals = [(dtrain, "train")],verbose_eval=True)
 
     print("Training complete!")
-    joblib.dump(model,"xgboostedMF.joblib")
+    joblib.dump(model,"xgboostedPRICEONLY.joblib")
     ################################################################################
     print("\n" + "="*60)
     print("STARTING TEST EVALUATION")
