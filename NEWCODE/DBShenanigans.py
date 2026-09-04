@@ -1,11 +1,17 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import glob
+import logging
+from random import randrange
+import time
 
 import duckdb
+from duckdb.sqltypes import VARCHAR
 import pandas as pd
 import sqlite3
 import pyarrow.parquet as pq
 import pyarrow as pa
 import polars as pl
+import requests
 
 tradesPQ = 'X:/PolymarketData/trades.parquet'
 marketPQ = 'X:/PolymarketData/markets.parquet'
@@ -136,6 +142,108 @@ def addmorefeatures(feature_cols,target_col):
             .select(feature_cols + [target_col])
         )
         processed.sink_parquet(f"X:/PolymarketData/ByCats/NoisyUsers/preprocessedNoisyUsers_train{i}.parquet")
+
+def DidheWin(UserBets: pa.Array, OutcomePrices: pa.Array): # INPUTs are pyarrows from the users parquet and market parquet
+    UserBets_pd = UserBets.to_pandas()
+    OutcomePrices_pd = OutcomePrices.to_pandas()
+    whereIs1 = OutcomePrices_pd.str.find("1")
+    Won = ((whereIs1==2) & (UserBets_pd == "token1")) | ((whereIs1!=2) & (UserBets_pd != "token1"))
+    
+    return pa.array(Won)
+
+
+def getMarketDATA(chunk):
+    try:
+        result = []
+        url = "https://gamma-api.polymarket.com/markets"
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                        url,
+                        params={
+                            "condition_ids":chunk,
+                            "closed":"true",
+                            "include_tag":True
+                        },
+                        timeout=15
+                    )    
+                data = response.json()
+                break
+            except (requests.exceptions.JSONDecodeError, requests.exceptions.RequestException) as e:
+                print(e)
+                time.sleep(1)
+
+        for m in data:
+            try:
+                tags = [t['label'] for t in m.get('tags', [])]
+                recurrences = m['events'][0]['series'][0]['recurrence']
+            except KeyError:
+                tags = [t['label'] for t in m.get('tags', [])]
+                recurrences = "once"
+            result.append({"condition_id":m["conditionId"],"tags":tags,"recurrences":recurrences})
+        time.sleep(0.3)
+    except Exception as e:
+        print(e)
+        exit()
+    return result
+    
+def makeLookUp(marketfile,outputFile): 
+    ids = duckdb.query(f"""SELECT DISTINCT condition_id from '{marketfile}'""").to_df()['condition_id'].tolist()
+    print(len(ids))
+    results = []
+    start = time.time()
+    chunks = [ids[i:i+20] for i in range(0, len(ids), 20)]
+    completed = 0
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(getMarketDATA, c): c for c in chunks}
+        for future in as_completed(futures):
+            results.extend(future.result())
+            completed += 1
+            print(completed)
+            if completed % 50 == 0:
+                elapsed = time.time() - start
+                rate = completed / elapsed
+                eta = (len(chunks) - completed) / rate / 60 if rate > 0 else float('inf')
+                print(f"{completed}/{len(chunks)} chunks done, {len(results)} rows, ETA {eta} min")
+            if completed % 2000 == 0:
+                pd.DataFrame(results).to_parquet(outputFile + ".partial", compression="zstd")
+                print(f"saved {len(results)}")
+
+    pd.DataFrame(results).to_parquet(outputFile, compression="zstd")
+    print(f"Done {len(results)} markets in lookup table")
+
+
+
+def joinLookUpToMarketFile(marketfile,lookUpFile):
+    conn = duckdb.connect()
+    conn.execute("SET enable_progress_bar = true")
+    conn.execute("SET enable_progress_bar_print = true")
+    conn.execute("PRAGMA temp_directory='X:/duckdb_tmp'")
+    conn.execute("PRAGMA max_temp_directory_size='300GiB'")
+    conn.execute("SET threads=3")
+    conn.execute("PRAGMA memory_limit='8GB'")
+    conn.execute("SET preserve_insertion_order=false")  
+    print("Starting...")
+
+    conn.sql(f"""
+        COPY (
+            SELECT a.*, b.tags, b.recurrences
+            FROM '{marketfile}' a
+            LEFT JOIN '{lookUpFile}' b
+                ON a.condition_id = b.condition_id
+        ) TO 'x:/PolymarketData/taggedMarkets.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
+    """)
+    print("Wrote taggedMarkets.parquet")
+    return
+
+def dropInvalidRecurrenceRows(marketsPQ):
+    duckdb.query(f"""
+        COPY (
+            SELECT * FROM '{marketsPQ}'
+            WHERE NOT (recurrences IS NULL AND tags IS NULL) AND recurrences != ''
+        ) TO 'X:/PolymarketData/Cleantaggedmarkets.parquet' (FORMAT PARQUET, COMPRESSION 'zstd')
+    """)
+
 feature_cols = [
         "time_since_start", 
         "time_until_end", 
@@ -157,3 +265,6 @@ feature_cols = [
 target_col = "won"
 #addFEATUREStodb()
 #addmorefeatures(feature_cols,target_col)
+#joinLookUpToMarketFile("X:/PolymarketData/markets.parquet","X:/PolymarketData/marketLookUp.parquet")
+#dropInvalidRecurrenceRows("X:/PolymarketData/taggedmarkets.parquet") # going to rename Cleantaggedmarket to taggedmarket
+processMetaModelData()

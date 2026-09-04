@@ -56,5 +56,5 @@ def testingOnSubset(Testfile, model):
     for feature, score in sorted(named_importance.items(), key=lambda x: -x[1]):
         print(f"{feature}: {score}")
     
-model = joblib.load("xgboostedMF.joblib")
+model = joblib.load("xgboostedMFNewNoisy.joblib")
 testingOnSubset(NoisyTestFile,model)
